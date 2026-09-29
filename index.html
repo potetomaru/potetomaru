@@ -1,0 +1,849 @@
+<!doctype html>
+<html lang="ja">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>時間割・持ち物チェック</title>
+    <style>
+      canvas {
+        max-width: 100%;
+        height: auto;
+      }
+    </style>
+  </head>
+  <body>
+    <section aria-labelledby="packing-title">
+      <h1 id="packing-title">時間割・持ち物チェック</h1>
+      <p>時間割と教科ごとの持ち物を登録すると、その日に必要な荷物と不足分を確認できます。</p>
+
+      <h2>時間割</h2>
+      <p>各曜日・時限の教科を入力してください。入力内容はこのブラウザに保存されます。</p>
+      <table>
+        <caption>曜日ごとの時間割</caption>
+        <thead>
+          <tr>
+            <th scope="col">時限</th>
+            <th scope="col">月曜日</th>
+            <th scope="col">火曜日</th>
+            <th scope="col">水曜日</th>
+            <th scope="col">木曜日</th>
+            <th scope="col">金曜日</th>
+            <th scope="col">土曜日</th>
+          </tr>
+        </thead>
+        <tbody id="schedule-body"></tbody>
+      </table>
+
+      <h2>教科・部活ごとの持ち物</h2>
+      <p>時間割に入力した教科名や部活名と同じ名前で登録してください。</p>
+      <p>持ち物は「、」または改行で区切って入力してください。</p>
+      <label>
+        教科
+        <input id="subject-name" type="text" list="subject-options" autocomplete="off" />
+      </label>
+      <datalist id="subject-options"></datalist>
+      <label>
+        持ち物
+        <textarea id="subject-items" rows="2" placeholder="教科書、ノート、筆箱"></textarea>
+      </label>
+      <button id="save-subject" type="button">教科の持ち物を登録</button>
+      <table>
+        <caption>登録済みの教科と持ち物</caption>
+        <thead>
+          <tr>
+            <th scope="col">教科</th>
+            <th scope="col">持ち物</th>
+            <th scope="col">操作</th>
+          </tr>
+        </thead>
+        <tbody id="subject-items-body"></tbody>
+      </table>
+
+      <h2>今日の荷物を確認</h2>
+      <label>
+        曜日
+        <select id="check-day"></select>
+      </label>
+      <label>
+        今持っているもの
+        <textarea id="current-items" rows="3" placeholder="筆箱、数学の教科書"></textarea>
+      </label>
+      <p>持ち物は「、」または改行で区切って入力してください。</p>
+      <h3>次の授業だけ必要なもの</h3>
+      <p>次の授業の曜日と時限を選ぶと、時間割の教科名が表示されます。授業が終わったら登録を削除してください。</p>
+      <label>
+        曜日
+        <select id="lesson-extra-day"></select>
+      </label>
+      <label>
+        時限
+        <select id="lesson-extra-period"></select>
+      </label>
+      <p id="lesson-extra-subject" role="status"></p>
+      <label>
+        次の授業だけ必要な持ち物
+        <textarea id="lesson-extra-items" rows="2" placeholder="裁縫セット"></textarea>
+      </label>
+      <button id="save-lesson-extra" type="button">次の授業に登録</button>
+      <table>
+        <caption>登録中の次回授業用持ち物</caption>
+        <thead>
+          <tr>
+            <th scope="col">授業</th>
+            <th scope="col">追加する持ち物</th>
+            <th scope="col">操作</th>
+          </tr>
+        </thead>
+        <tbody id="lesson-extra-body"></tbody>
+      </table>
+      <label>
+        今回だけ必要なものの曜日
+        <select id="extra-day"></select>
+      </label>
+      <label>
+        今回だけ必要な持ち物・提出物
+        <textarea id="extra-items" rows="2" placeholder="提出書類、集金袋"></textarea>
+      </label>
+      <p>指定した曜日の確認にだけ追加され、ブラウザには保存されません。</p>
+      <button id="check-items" type="button">不足している持ち物を確認</button>
+      <p id="packing-status" role="status">時間割と教科ごとの持ち物を登録してください。</p>
+      <pre id="packing-result"></pre>
+    </section>
+
+    <section aria-labelledby="image-demo-title">
+      <h2 id="image-demo-title">画像認識デモ</h2>
+      <p>画像を選び、WebGPUで物体検出を実行します。</p>
+      <p>
+        使用モデル:
+        <a href="https://huggingface.co/onnx-community/yolov10n" target="_blank" rel="noreferrer">
+          onnx-community/yolov10n (AGPL-3.0)
+        </a>
+      </p>
+
+      <label>
+        画像
+        <input id="image-file" type="file" accept="image/*" />
+      </label>
+      <label>
+        信頼度しきい値
+        <input
+          id="threshold"
+          type="number"
+          min="0"
+          max="1"
+          step="0.05"
+          value="0.4"
+        />
+      </label>
+      <button id="run-button" type="button">物体を検出</button>
+
+      <p id="status" role="status">画像を選択してください。</p>
+      <canvas id="result-canvas" aria-label="物体検出結果"></canvas>
+      <pre id="counts"></pre>
+
+    <script>
+      (() => {
+        const DAYS = ["月", "火", "水", "木", "金", "土"];
+        const PERIODS = 6;
+        const STORAGE_KEY = "school-packing-planner-v1";
+        const scheduleBody = document.querySelector("#schedule-body");
+        const subjectNameInput = document.querySelector("#subject-name");
+        const subjectItemsInput = document.querySelector("#subject-items");
+        const saveSubjectButton = document.querySelector("#save-subject");
+        const subjectItemsBody = document.querySelector("#subject-items-body");
+        const subjectOptions = document.querySelector("#subject-options");
+        const checkDaySelect = document.querySelector("#check-day");
+        const extraDaySelect = document.querySelector("#extra-day");
+        const lessonExtraDaySelect = document.querySelector("#lesson-extra-day");
+        const lessonExtraPeriodSelect = document.querySelector("#lesson-extra-period");
+        const lessonExtraSubject = document.querySelector("#lesson-extra-subject");
+        const lessonExtraItemsInput = document.querySelector("#lesson-extra-items");
+        const saveLessonExtraButton = document.querySelector("#save-lesson-extra");
+        const lessonExtraBody = document.querySelector("#lesson-extra-body");
+        const currentItemsInput = document.querySelector("#current-items");
+        const extraItemsInput = document.querySelector("#extra-items");
+        const checkItemsButton = document.querySelector("#check-items");
+        const packingStatus = document.querySelector("#packing-status");
+        const packingResult = document.querySelector("#packing-result");
+
+        function emptySchedule() {
+          return Array.from({ length: PERIODS }, () => DAYS.map(() => ""));
+        }
+
+        function readSavedState() {
+          try {
+            const saved = JSON.parse(localStorage.getItem(STORAGE_KEY) ?? "null");
+            if (!saved || typeof saved !== "object") return null;
+
+            const schedule = emptySchedule();
+            for (let period = 0; period < PERIODS; period++) {
+              for (let day = 0; day < DAYS.length; day++) {
+                const value = saved.schedule?.[period]?.[day];
+                schedule[period][day] = typeof value === "string" ? value : "";
+              }
+            }
+
+            const subjectItems = {};
+            if (saved.subjectItems && typeof saved.subjectItems === "object") {
+              for (const [subject, items] of Object.entries(saved.subjectItems)) {
+                if (typeof subject === "string" && Array.isArray(items)) {
+                  subjectItems[subject] = items.filter((item) => typeof item === "string");
+                }
+              }
+            }
+
+            const lessonExtras = Array.isArray(saved.lessonExtras)
+              ? saved.lessonExtras
+                  .filter((extra) =>
+                    extra &&
+                    DAYS.includes(extra.day) &&
+                    (extra.period === "club" ||
+                      (Number.isInteger(extra.period) && extra.period >= 1 && extra.period <= PERIODS)) &&
+                    Array.isArray(extra.items),
+                  )
+                  .map((extra) => ({
+                    day: extra.day,
+                    period: extra.period,
+                    items: extra.items.filter((item) => typeof item === "string"),
+                  }))
+              : [];
+
+            return {
+              schedule,
+              clubSchedule: DAYS.map((_, day) => {
+                const club = saved.clubSchedule?.[day];
+                return typeof club === "string" ? club : "";
+              }),
+              subjectItems,
+              lessonExtras,
+              selectedDay: DAYS.includes(saved.selectedDay) ? saved.selectedDay : DAYS[0],
+              currentItems: typeof saved.currentItems === "string" ? saved.currentItems : "",
+            };
+          } catch (error) {
+            console.warn("保存済みの時間割を読み込めませんでした。", error);
+            return null;
+          }
+        }
+
+        const state = readSavedState() ?? {
+          schedule: emptySchedule(),
+          clubSchedule: DAYS.map(() => ""),
+          subjectItems: {},
+          lessonExtras: [],
+          selectedDay: DAYS[0],
+          currentItems: "",
+        };
+        let editingSubject = null;
+
+        function saveState() {
+          try {
+            localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+            packingStatus.textContent = "入力内容をこのブラウザに保存しました。";
+          } catch (error) {
+            console.error(error);
+            packingStatus.textContent = "ブラウザに保存できませんでした。";
+          }
+        }
+
+        function splitItems(value) {
+          return [...new Set(
+            value
+              .split(/[、,，\n]/)
+              .map((item) => item.trim())
+              .filter(Boolean),
+          )];
+        }
+
+        function itemKey(value) {
+          return value.normalize("NFKC").trim().toLocaleLowerCase("ja");
+        }
+
+        function renderSchedule() {
+          scheduleBody.replaceChildren();
+          for (let period = 0; period < PERIODS; period++) {
+            const row = document.createElement("tr");
+            const heading = document.createElement("th");
+            heading.scope = "row";
+            heading.textContent = `${period + 1}時間目`;
+            row.append(heading);
+
+            for (let day = 0; day < DAYS.length; day++) {
+              const cell = document.createElement("td");
+              const input = document.createElement("input");
+              input.type = "text";
+              input.value = state.schedule[period][day];
+              input.setAttribute("list", "subject-options");
+              input.setAttribute("aria-label", `${DAYS[day]}曜日 ${period + 1}時間目の教科`);
+              input.addEventListener("input", () => {
+                state.schedule[period][day] = input.value;
+                saveState();
+                updateLessonExtraSubject();
+                renderLessonExtras();
+              });
+              cell.append(input);
+              row.append(cell);
+            }
+
+            scheduleBody.append(row);
+          }
+
+          const clubRow = document.createElement("tr");
+          const clubHeading = document.createElement("th");
+          clubHeading.scope = "row";
+          clubHeading.textContent = "部活";
+          clubRow.append(clubHeading);
+          for (let day = 0; day < DAYS.length; day++) {
+            const cell = document.createElement("td");
+            const input = document.createElement("input");
+            input.type = "text";
+            input.value = state.clubSchedule[day];
+            input.placeholder = "部活名を自由に入力";
+            input.setAttribute("aria-label", `${DAYS[day]}曜日の部活`);
+            input.addEventListener("input", () => {
+              state.clubSchedule[day] = input.value;
+              saveState();
+              updateLessonExtraSubject();
+              renderLessonExtras();
+            });
+            cell.append(input);
+            clubRow.append(cell);
+          }
+          scheduleBody.append(clubRow);
+          renderSubjectOptions();
+          updateLessonExtraSubject();
+          renderLessonExtras();
+        }
+
+        function renderSubjectOptions() {
+          const scheduledSubjects = state.schedule.flat().map((subject) => subject.trim());
+          const subjects = [...new Set([
+            ...Object.keys(state.subjectItems),
+            ...state.clubSchedule.map((club) => club.trim()),
+            ...scheduledSubjects.filter(Boolean),
+          ].filter(Boolean))];
+          subjectOptions.replaceChildren(
+            ...subjects.map((subject) => {
+              const option = document.createElement("option");
+              option.value = subject;
+              return option;
+            }),
+          );
+        }
+
+        function scheduledLessonName(day, period) {
+          const dayIndex = DAYS.indexOf(day);
+          if (dayIndex < 0) return "";
+          if (period === "club") return state.clubSchedule[dayIndex].trim();
+          return state.schedule[Number(period) - 1]?.[dayIndex]?.trim() ?? "";
+        }
+
+        function updateLessonExtraSubject() {
+          const day = lessonExtraDaySelect.value;
+          const period = lessonExtraPeriodSelect.value === "club"
+            ? "club"
+            : Number(lessonExtraPeriodSelect.value);
+          const subject = scheduledLessonName(day, period);
+          const slot = period === "club" ? "部活" : `${period}時間目`;
+          lessonExtraSubject.textContent = subject
+            ? `対象の授業: ${day}曜日 ${slot}「${subject}」`
+            : `対象: ${day}曜日 ${slot}（時間割に教科・部活名がありません）`;
+        }
+
+        function lessonExtraTitle(extra) {
+          const slot = extra.period === "club" ? "部活" : `${extra.period}時間目`;
+          const subject = scheduledLessonName(extra.day, extra.period);
+          return `${extra.day}曜日 ${slot}「${subject || "教科名未入力"}」`;
+        }
+
+        function renderLessonExtras() {
+          lessonExtraBody.replaceChildren();
+          state.lessonExtras.forEach((extra, index) => {
+            const row = document.createElement("tr");
+            const lessonCell = document.createElement("th");
+            lessonCell.scope = "row";
+            lessonCell.textContent = lessonExtraTitle(extra);
+            const itemsCell = document.createElement("td");
+            itemsCell.textContent = extra.items.join("、");
+            const actionCell = document.createElement("td");
+            const deleteButton = document.createElement("button");
+            deleteButton.type = "button";
+            deleteButton.textContent = "完了・削除";
+            deleteButton.addEventListener("click", () => {
+              state.lessonExtras.splice(index, 1);
+              renderLessonExtras();
+              saveState();
+            });
+            actionCell.append(deleteButton);
+            row.append(lessonCell, itemsCell, actionCell);
+            lessonExtraBody.append(row);
+          });
+        }
+
+        function registerLessonExtra() {
+          const day = lessonExtraDaySelect.value;
+          const period = lessonExtraPeriodSelect.value === "club"
+            ? "club"
+            : Number(lessonExtraPeriodSelect.value);
+          const subject = scheduledLessonName(day, period);
+          const items = splitItems(lessonExtraItemsInput.value);
+
+          if (!subject) {
+            packingStatus.textContent = "先に時間割へ対象の教科・部活名を入力してください。";
+            return;
+          }
+          if (!items.length) {
+            packingStatus.textContent = "次の授業だけ必要な持ち物を入力してください。";
+            lessonExtraItemsInput.focus();
+            return;
+          }
+
+          const existing = state.lessonExtras.find((extra) =>
+            extra.day === day && extra.period === period,
+          );
+          if (existing) {
+            existing.items = items;
+          } else {
+            state.lessonExtras.push({ day, period, items });
+          }
+          lessonExtraItemsInput.value = "";
+          renderLessonExtras();
+          saveState();
+          packingStatus.textContent = `次の授業「${subject}」に持ち物を登録しました。`;
+        }
+
+        function renderSubjectItems() {
+          subjectItemsBody.replaceChildren();
+          for (const [subject, items] of Object.entries(state.subjectItems).sort(([a], [b]) => a.localeCompare(b, "ja"))) {
+            const row = document.createElement("tr");
+            const subjectCell = document.createElement("th");
+            subjectCell.scope = "row";
+            subjectCell.textContent = subject;
+            const itemsCell = document.createElement("td");
+            itemsCell.textContent = items.join("、");
+            const actionsCell = document.createElement("td");
+
+            const editButton = document.createElement("button");
+            editButton.type = "button";
+            editButton.textContent = "編集";
+            editButton.addEventListener("click", () => {
+              editingSubject = subject;
+              subjectNameInput.value = subject;
+              subjectItemsInput.value = items.join("、");
+              saveSubjectButton.textContent = "教科の持ち物を更新";
+              subjectNameInput.focus();
+            });
+
+            const deleteButton = document.createElement("button");
+            deleteButton.type = "button";
+            deleteButton.textContent = "削除";
+            deleteButton.addEventListener("click", () => {
+              delete state.subjectItems[subject];
+              if (editingSubject === subject) resetSubjectForm();
+              renderSubjectItems();
+              renderSubjectOptions();
+              saveState();
+            });
+
+            actionsCell.append(editButton, deleteButton);
+            row.append(subjectCell, itemsCell, actionsCell);
+            subjectItemsBody.append(row);
+          }
+        }
+
+        function resetSubjectForm() {
+          editingSubject = null;
+          subjectNameInput.value = "";
+          subjectItemsInput.value = "";
+          saveSubjectButton.textContent = "教科の持ち物を登録";
+        }
+
+        function registerSubject() {
+          const subject = subjectNameInput.value.trim();
+          const items = splitItems(subjectItemsInput.value);
+          if (!subject) {
+            packingStatus.textContent = "教科名を入力してください。";
+            subjectNameInput.focus();
+            return;
+          }
+          if (!items.length) {
+            packingStatus.textContent = "その教科で必要な持ち物を入力してください。";
+            subjectItemsInput.focus();
+            return;
+          }
+          if (
+            editingSubject &&
+            editingSubject !== subject &&
+            Object.hasOwn(state.subjectItems, subject)
+          ) {
+            packingStatus.textContent = "その教科名はすでに登録されています。";
+            subjectNameInput.focus();
+            return;
+          }
+
+          if (editingSubject && editingSubject !== subject) {
+            delete state.subjectItems[editingSubject];
+            state.schedule = state.schedule.map((period) =>
+              period.map((scheduledSubject) =>
+                scheduledSubject.trim() === editingSubject ? subject : scheduledSubject,
+              ),
+            );
+            state.clubSchedule = state.clubSchedule.map((club) =>
+              club.trim() === editingSubject ? subject : club,
+            );
+            renderSchedule();
+          }
+          state.subjectItems[subject] = items;
+          resetSubjectForm();
+          renderSubjectItems();
+          renderSubjectOptions();
+          saveState();
+        }
+
+        function checkMissingItems() {
+          const dayIndex = DAYS.indexOf(checkDaySelect.value);
+          const subjects = [...new Set(
+            [
+              ...state.schedule.map((period) => period[dayIndex].trim()),
+              state.clubSchedule[dayIndex].trim(),
+            ].filter(Boolean),
+          )];
+          const enteredOneTimeItems = splitItems(extraItemsInput.value);
+          const oneTimeItemsApply = extraDaySelect.value === checkDaySelect.value;
+          const oneTimeItems = oneTimeItemsApply ? enteredOneTimeItems : [];
+          const lessonExtrasForDay = state.lessonExtras.filter(
+            (extra) => extra.day === checkDaySelect.value,
+          );
+          if (!subjects.length && !oneTimeItems.length && !lessonExtrasForDay.length) {
+            packingStatus.textContent = "選んだ曜日の時間割を入力してください。";
+            packingResult.textContent = "";
+            return;
+          }
+
+          const requiredItems = [];
+          const requiredKeys = new Set();
+          const unregisteredSubjects = [];
+          for (const subject of subjects) {
+            if (!Object.hasOwn(state.subjectItems, subject)) {
+              unregisteredSubjects.push(subject);
+              continue;
+            }
+            for (const item of state.subjectItems[subject]) {
+              const key = itemKey(item);
+              if (!requiredKeys.has(key)) {
+                requiredKeys.add(key);
+                requiredItems.push(item);
+              }
+            }
+          }
+
+          for (const item of oneTimeItems) {
+            const key = itemKey(item);
+            if (!requiredKeys.has(key)) {
+              requiredKeys.add(key);
+              requiredItems.push(item);
+            }
+          }
+          for (const extra of lessonExtrasForDay) {
+            for (const item of extra.items) {
+              const key = itemKey(item);
+              if (!requiredKeys.has(key)) {
+                requiredKeys.add(key);
+                requiredItems.push(item);
+              }
+            }
+          }
+
+          const currentKeys = new Set(splitItems(currentItemsInput.value).map(itemKey));
+          const missingItems = requiredItems.filter((item) => !currentKeys.has(itemKey(item)));
+          let missingMessage;
+          if (missingItems.length) {
+            missingMessage = `あと必要なもの: ${missingItems.join("、")}`;
+          } else if (unregisteredSubjects.length) {
+            missingMessage = "登録済みの持ち物に不足はありません（未登録の教科があります）。";
+          } else if (!requiredItems.length) {
+            missingMessage = "教科ごとの持ち物を登録してください。";
+          } else {
+            missingMessage = "あと必要なものはありません。";
+          }
+          const lines = [
+            `${DAYS[dayIndex]}曜日の授業・部活: ${subjects.join("、") || "なし"}`,
+            `必要な持ち物: ${requiredItems.length ? requiredItems.join("、") : "登録なし"}`,
+            `今持っているもの: ${splitItems(currentItemsInput.value).join("、") || "入力なし"}`,
+            oneTimeItemsApply
+              ? `今回だけ必要なもの: ${oneTimeItems.join("、") || "なし"}`
+              : `今回だけ必要なもの（${extraDaySelect.value}曜日分）: ${enteredOneTimeItems.join("、") || "なし"}（この日の確認には含めていません）`,
+            `次の授業だけ必要なもの: ${lessonExtrasForDay.map((extra) => `${lessonExtraTitle(extra)}: ${extra.items.join("、")}`).join(" / ") || "なし"}`,
+            missingMessage,
+          ];
+          if (unregisteredSubjects.length) {
+            lines.push(`持ち物が未登録の教科: ${unregisteredSubjects.join("、")}`);
+          }
+
+          packingResult.textContent = lines.join("\n");
+          packingStatus.textContent = "確認しました。";
+          state.selectedDay = checkDaySelect.value;
+          state.currentItems = currentItemsInput.value;
+          saveState();
+          packingStatus.textContent = "確認しました。入力内容をこのブラウザに保存しました。";
+        }
+
+        for (const day of DAYS) {
+          const checkOption = document.createElement("option");
+          checkOption.value = day;
+          checkOption.textContent = `${day}曜日`;
+          checkDaySelect.append(checkOption);
+
+          const extraOption = document.createElement("option");
+          extraOption.value = day;
+          extraOption.textContent = `${day}曜日`;
+          extraDaySelect.append(extraOption);
+
+          const lessonDayOption = document.createElement("option");
+          lessonDayOption.value = day;
+          lessonDayOption.textContent = `${day}曜日`;
+          lessonExtraDaySelect.append(lessonDayOption);
+        }
+        for (let period = 1; period <= PERIODS; period++) {
+          const option = document.createElement("option");
+          option.value = String(period);
+          option.textContent = `${period}時間目`;
+          lessonExtraPeriodSelect.append(option);
+        }
+        const clubPeriodOption = document.createElement("option");
+        clubPeriodOption.value = "club";
+        clubPeriodOption.textContent = "部活";
+        lessonExtraPeriodSelect.append(clubPeriodOption);
+        checkDaySelect.value = state.selectedDay;
+        extraDaySelect.value = state.selectedDay;
+        lessonExtraDaySelect.value = state.selectedDay;
+        lessonExtraPeriodSelect.value = "1";
+        currentItemsInput.value = state.currentItems;
+        renderSchedule();
+        renderSubjectItems();
+
+        saveSubjectButton.addEventListener("click", registerSubject);
+        checkItemsButton.addEventListener("click", checkMissingItems);
+        saveLessonExtraButton.addEventListener("click", registerLessonExtra);
+        lessonExtraDaySelect.addEventListener("change", updateLessonExtraSubject);
+        lessonExtraPeriodSelect.addEventListener("change", updateLessonExtraSubject);
+        checkDaySelect.addEventListener("change", () => {
+          state.selectedDay = checkDaySelect.value;
+          saveState();
+        });
+        currentItemsInput.addEventListener("input", () => {
+          state.currentItems = currentItemsInput.value;
+          saveState();
+        });
+      })();
+    </script>
+
+    <script type="module">
+      import {
+        AutoModel,
+        AutoProcessor,
+        RawImage,
+        env,
+      } from "https://cdn.jsdelivr.net/npm/@huggingface/transformers@3.8.1";
+
+      env.allowLocalModels = false;
+
+      const MODEL_ID = "onnx-community/yolov10n";
+      const MAX_IMAGE_SIDE = 960;
+      const imageFileInput = document.querySelector("#image-file");
+      const thresholdInput = document.querySelector("#threshold");
+      const runButton = document.querySelector("#run-button");
+      const statusElement = document.querySelector("#status");
+      const resultCanvas = document.querySelector("#result-canvas");
+      const countsElement = document.querySelector("#counts");
+      const resultContext = resultCanvas.getContext("2d");
+
+      let model;
+      let processor;
+      let busy = false;
+
+      async function requireWebGPU() {
+        if (!navigator.gpu) {
+          throw new Error("このブラウザではWebGPUが利用できません");
+        }
+
+        const adapter = await navigator.gpu.requestAdapter();
+        if (!adapter) {
+          throw new Error("WebGPU adapterを取得できません");
+        }
+
+        return adapter;
+      }
+
+      function progressCallback(progress) {
+        if (progress.status === "progress" && Number.isFinite(progress.progress)) {
+          const file = progress.file ? ` (${progress.file})` : "";
+          statusElement.textContent =
+            `モデルをダウンロード中: ${progress.progress.toFixed(0)}%${file}`;
+        }
+      }
+
+      async function ensureModel() {
+        if (!model) {
+          model = await AutoModel.from_pretrained(MODEL_ID, {
+            device: "webgpu",
+            dtype: "q8",
+            progress_callback: progressCallback,
+          });
+        }
+
+        if (!processor) {
+          processor = await AutoProcessor.from_pretrained(MODEL_ID);
+        }
+      }
+
+      async function fileToCanvas(file, maxSide = MAX_IMAGE_SIDE) {
+        const objectUrl = URL.createObjectURL(file);
+        const image = new Image();
+
+        try {
+          image.src = objectUrl;
+          await image.decode();
+
+          const scale = Math.min(
+            1,
+            maxSide / Math.max(image.naturalWidth, image.naturalHeight),
+          );
+          const canvas = document.createElement("canvas");
+          canvas.width = Math.max(1, Math.round(image.naturalWidth * scale));
+          canvas.height = Math.max(1, Math.round(image.naturalHeight * scale));
+          canvas
+            .getContext("2d", { willReadFrequently: true })
+            .drawImage(image, 0, 0, canvas.width, canvas.height);
+          return canvas;
+        } finally {
+          URL.revokeObjectURL(objectUrl);
+        }
+      }
+
+      function getDetections(output, processed, inputCanvas, threshold) {
+        const prediction = output.output0;
+        if (
+          !prediction ||
+          prediction.dims.length !== 3 ||
+          prediction.dims[0] !== 1 ||
+          prediction.dims[2] !== 6
+        ) {
+          throw new Error(
+            `YOLO出力のshapeが想定外です: ${prediction?.dims?.join(", ") ?? "なし"}`,
+          );
+        }
+
+        const [newHeight, newWidth] = processed.reshaped_input_sizes[0];
+        const scaleX = inputCanvas.width / newWidth;
+        const scaleY = inputCanvas.height / newHeight;
+        const detections = [];
+
+        for (let index = 0; index < prediction.dims[1]; index++) {
+          const offset = index * 6;
+          const [xmin, ymin, xmax, ymax, score, classValue] =
+            prediction.data.subarray(offset, offset + 6);
+
+          if (!Number.isFinite(score) || score < threshold) continue;
+
+          const classId = Math.round(classValue);
+          const label = model.config.id2label[classId] ?? `class ${classId}`;
+          detections.push({
+            x: xmin * scaleX,
+            y: ymin * scaleY,
+            width: (xmax - xmin) * scaleX,
+            height: (ymax - ymin) * scaleY,
+            score,
+            label,
+          });
+        }
+
+        return detections;
+      }
+
+      function showDetections(inputCanvas, detections) {
+        resultCanvas.width = inputCanvas.width;
+        resultCanvas.height = inputCanvas.height;
+        resultContext.drawImage(inputCanvas, 0, 0);
+        resultContext.lineWidth = Math.max(2, inputCanvas.width / 400);
+        resultContext.font = `${Math.max(14, inputCanvas.width / 50)}px sans-serif`;
+        resultContext.textBaseline = "top";
+
+        const counts = new Map();
+        for (const detection of detections) {
+          counts.set(detection.label, (counts.get(detection.label) ?? 0) + 1);
+          resultContext.strokeStyle = "lime";
+          resultContext.strokeRect(
+            detection.x,
+            detection.y,
+            detection.width,
+            detection.height,
+          );
+
+          const label = `${detection.label} ${detection.score.toFixed(2)}`;
+          const textY = Math.max(0, detection.y - Math.max(18, inputCanvas.width / 40));
+          resultContext.fillStyle = "lime";
+          resultContext.fillText(label, detection.x, textY);
+        }
+
+        countsElement.textContent = detections.length
+          ? [...counts]
+              .map(([label, count]) => `${label}: ${count}`)
+              .join("\n")
+          : "物体は検出されませんでした。";
+      }
+
+      async function detectObjects() {
+        if (busy) return;
+
+        const file = imageFileInput.files?.[0];
+        if (!file) {
+          statusElement.textContent = "先に画像を選択してください。";
+          return;
+        }
+
+        const threshold = Number(thresholdInput.value);
+        if (!Number.isFinite(threshold) || threshold < 0 || threshold > 1) {
+          statusElement.textContent = "信頼度しきい値は0から1の範囲で指定してください。";
+          return;
+        }
+
+        busy = true;
+        runButton.disabled = true;
+        countsElement.textContent = "";
+
+        let processed;
+        let output;
+        try {
+          await requireWebGPU();
+          statusElement.textContent = "画像を準備しています…";
+          const inputCanvas = await fileToCanvas(file);
+
+          statusElement.textContent = "YOLOv10を読み込んでいます…";
+          await ensureModel();
+
+          statusElement.textContent = "物体を検出しています…";
+          processed = await processor(RawImage.fromCanvas(inputCanvas));
+          output = await model({ images: processed.pixel_values });
+          const detections = getDetections(output, processed, inputCanvas, threshold);
+          showDetections(inputCanvas, detections);
+          statusElement.textContent = `検出完了: ${detections.length}件`;
+        } catch (error) {
+          statusElement.textContent = `エラー: ${error.message}`;
+          console.error(error);
+        } finally {
+          output?.output0?.dispose?.();
+          processed?.pixel_values?.dispose?.();
+          busy = false;
+          runButton.disabled = false;
+        }
+      }
+
+      runButton.addEventListener("click", detectObjects);
+
+      window.addEventListener("pagehide", () => {
+        model?.dispose?.();
+      });
+    </script>
+    </section>
+  </body>
+</html>
