@@ -34,8 +34,8 @@
         <tbody id="schedule-body"></tbody>
       </table>
 
-      <h2>教科・部活ごとの持ち物</h2>
-      <p>時間割に入力した教科名や部活名と同じ名前で登録してください。</p>
+      <h2>教科ごとの持ち物</h2>
+      <p>時間割に入力した教科名と同じ名前で登録してください。</p>
       <p>持ち物は「、」または改行で区切って入力してください。</p>
       <label>
         教科
@@ -59,6 +59,29 @@
         <tbody id="subject-items-body"></tbody>
       </table>
 
+      <h2>部活ごとの持ち物</h2>
+      <p>時間割の部活欄と同じ名前で、部活ごとの持ち物を登録してください。</p>
+      <label>
+        部活名
+        <input id="club-name" type="text" placeholder="例: バスケットボール部" />
+      </label>
+      <label>
+        持ち物
+        <textarea id="club-items" rows="2" placeholder="練習着、シューズ、水筒"></textarea>
+      </label>
+      <button id="save-club" type="button">部活の持ち物を登録</button>
+      <table>
+        <caption>登録済みの部活と持ち物</caption>
+        <thead>
+          <tr>
+            <th scope="col">部活</th>
+            <th scope="col">持ち物</th>
+            <th scope="col">操作</th>
+          </tr>
+        </thead>
+        <tbody id="club-items-body"></tbody>
+      </table>
+
       <h2>今日の荷物を確認</h2>
       <label>
         曜日
@@ -69,6 +92,7 @@
         <textarea id="current-items" rows="3" placeholder="筆箱、数学の教科書"></textarea>
       </label>
       <p>持ち物は「、」または改行で区切って入力してください。</p>
+      <p>今持っているものを入力すると、不足している持ち物が自動で更新されます。</p>
       <h3>次の授業だけ必要なもの</h3>
       <p>次の授業の曜日と時限を選ぶと、時間割の教科名が表示されます。授業が終わったら登録を削除してください。</p>
       <label>
@@ -151,6 +175,10 @@
         const subjectItemsInput = document.querySelector("#subject-items");
         const saveSubjectButton = document.querySelector("#save-subject");
         const subjectItemsBody = document.querySelector("#subject-items-body");
+        const clubNameInput = document.querySelector("#club-name");
+        const clubItemsInput = document.querySelector("#club-items");
+        const saveClubButton = document.querySelector("#save-club");
+        const clubItemsBody = document.querySelector("#club-items-body");
         const subjectOptions = document.querySelector("#subject-options");
         const checkDaySelect = document.querySelector("#check-day");
         const extraDaySelect = document.querySelector("#extra-day");
@@ -183,11 +211,32 @@
               }
             }
 
+            const clubSchedule = DAYS.map((_, day) => {
+              const club = saved.clubSchedule?.[day];
+              return typeof club === "string" ? club : "";
+            });
+
             const subjectItems = {};
             if (saved.subjectItems && typeof saved.subjectItems === "object") {
               for (const [subject, items] of Object.entries(saved.subjectItems)) {
                 if (typeof subject === "string" && Array.isArray(items)) {
                   subjectItems[subject] = items.filter((item) => typeof item === "string");
+                }
+              }
+            }
+
+            const clubItems = {};
+            if (saved.clubItems && typeof saved.clubItems === "object") {
+              for (const [club, items] of Object.entries(saved.clubItems)) {
+                if (typeof club === "string" && Array.isArray(items)) {
+                  clubItems[club] = items.filter((item) => typeof item === "string");
+                }
+              }
+            } else {
+              for (const club of clubSchedule.map((name) => name.trim()).filter(Boolean)) {
+                if (Object.hasOwn(subjectItems, club)) {
+                  clubItems[club] = subjectItems[club];
+                  delete subjectItems[club];
                 }
               }
             }
@@ -210,11 +259,9 @@
 
             return {
               schedule,
-              clubSchedule: DAYS.map((_, day) => {
-                const club = saved.clubSchedule?.[day];
-                return typeof club === "string" ? club : "";
-              }),
+              clubSchedule,
               subjectItems,
+              clubItems,
               lessonExtras,
               selectedDay: DAYS.includes(saved.selectedDay) ? saved.selectedDay : DAYS[0],
               currentItems: typeof saved.currentItems === "string" ? saved.currentItems : "",
@@ -229,11 +276,13 @@
           schedule: emptySchedule(),
           clubSchedule: DAYS.map(() => ""),
           subjectItems: {},
+          clubItems: {},
           lessonExtras: [],
           selectedDay: DAYS[0],
           currentItems: "",
         };
         let editingSubject = null;
+        let editingClub = null;
 
         function saveState() {
           try {
@@ -279,6 +328,7 @@
                 saveState();
                 updateLessonExtraSubject();
                 renderLessonExtras();
+                checkMissingItems();
               });
               cell.append(input);
               row.append(cell);
@@ -304,6 +354,7 @@
               saveState();
               updateLessonExtraSubject();
               renderLessonExtras();
+              checkMissingItems();
             });
             cell.append(input);
             clubRow.append(cell);
@@ -372,6 +423,7 @@
               state.lessonExtras.splice(index, 1);
               renderLessonExtras();
               saveState();
+              checkMissingItems();
             });
             actionCell.append(deleteButton);
             row.append(lessonCell, itemsCell, actionCell);
@@ -409,6 +461,7 @@
           renderLessonExtras();
           saveState();
           packingStatus.textContent = `次の授業「${subject}」に持ち物を登録しました。`;
+          checkMissingItems();
         }
 
         function renderSubjectItems() {
@@ -442,12 +495,92 @@
               renderSubjectItems();
               renderSubjectOptions();
               saveState();
+              checkMissingItems();
             });
 
             actionsCell.append(editButton, deleteButton);
             row.append(subjectCell, itemsCell, actionsCell);
             subjectItemsBody.append(row);
           }
+        }
+
+        function renderClubItems() {
+          clubItemsBody.replaceChildren();
+          for (const [club, items] of Object.entries(state.clubItems).sort(([a], [b]) => a.localeCompare(b, "ja"))) {
+            const row = document.createElement("tr");
+            const clubCell = document.createElement("th");
+            clubCell.scope = "row";
+            clubCell.textContent = club;
+            const itemsCell = document.createElement("td");
+            itemsCell.textContent = items.join("、");
+            const actionsCell = document.createElement("td");
+
+            const editButton = document.createElement("button");
+            editButton.type = "button";
+            editButton.textContent = "編集";
+            editButton.addEventListener("click", () => {
+              editingClub = club;
+              clubNameInput.value = club;
+              clubItemsInput.value = items.join("、");
+              saveClubButton.textContent = "部活の持ち物を更新";
+              clubNameInput.focus();
+            });
+
+            const deleteButton = document.createElement("button");
+            deleteButton.type = "button";
+            deleteButton.textContent = "削除";
+            deleteButton.addEventListener("click", () => {
+              delete state.clubItems[club];
+              if (editingClub === club) resetClubForm();
+              renderClubItems();
+              saveState();
+              checkMissingItems();
+            });
+
+            actionsCell.append(editButton, deleteButton);
+            row.append(clubCell, itemsCell, actionsCell);
+            clubItemsBody.append(row);
+          }
+        }
+
+        function resetClubForm() {
+          editingClub = null;
+          clubNameInput.value = "";
+          clubItemsInput.value = "";
+          saveClubButton.textContent = "部活の持ち物を登録";
+        }
+
+        function registerClub() {
+          const club = clubNameInput.value.trim();
+          const items = splitItems(clubItemsInput.value);
+          if (!club) {
+            packingStatus.textContent = "部活名を入力してください。";
+            clubNameInput.focus();
+            return;
+          }
+          if (!items.length) {
+            packingStatus.textContent = "その部活で必要な持ち物を入力してください。";
+            clubItemsInput.focus();
+            return;
+          }
+          if (editingClub && editingClub !== club && Object.hasOwn(state.clubItems, club)) {
+            packingStatus.textContent = "その部活名はすでに登録されています。";
+            clubNameInput.focus();
+            return;
+          }
+
+          if (editingClub && editingClub !== club) {
+            delete state.clubItems[editingClub];
+            state.clubSchedule = state.clubSchedule.map((scheduledClub) =>
+              scheduledClub.trim() === editingClub ? club : scheduledClub,
+            );
+            renderSchedule();
+          }
+          state.clubItems[club] = items;
+          resetClubForm();
+          renderClubItems();
+          saveState();
+          checkMissingItems();
         }
 
         function resetSubjectForm() {
@@ -487,9 +620,6 @@
                 scheduledSubject.trim() === editingSubject ? subject : scheduledSubject,
               ),
             );
-            state.clubSchedule = state.clubSchedule.map((club) =>
-              club.trim() === editingSubject ? subject : club,
-            );
             renderSchedule();
           }
           state.subjectItems[subject] = items;
@@ -497,23 +627,24 @@
           renderSubjectItems();
           renderSubjectOptions();
           saveState();
+          checkMissingItems();
         }
 
         function checkMissingItems() {
           const dayIndex = DAYS.indexOf(checkDaySelect.value);
           const subjects = [...new Set(
-            [
-              ...state.schedule.map((period) => period[dayIndex].trim()),
-              state.clubSchedule[dayIndex].trim(),
-            ].filter(Boolean),
+            state.schedule
+              .map((period) => period[dayIndex].trim())
+              .filter(Boolean),
           )];
+          const clubName = state.clubSchedule[dayIndex].trim();
           const enteredOneTimeItems = splitItems(extraItemsInput.value);
           const oneTimeItemsApply = extraDaySelect.value === checkDaySelect.value;
           const oneTimeItems = oneTimeItemsApply ? enteredOneTimeItems : [];
           const lessonExtrasForDay = state.lessonExtras.filter(
             (extra) => extra.day === checkDaySelect.value,
           );
-          if (!subjects.length && !oneTimeItems.length && !lessonExtrasForDay.length) {
+          if (!subjects.length && !clubName && !oneTimeItems.length && !lessonExtrasForDay.length) {
             packingStatus.textContent = "選んだ曜日の時間割を入力してください。";
             packingResult.textContent = "";
             return;
@@ -522,6 +653,7 @@
           const requiredItems = [];
           const requiredKeys = new Set();
           const unregisteredSubjects = [];
+          const unregisteredClubs = [];
           for (const subject of subjects) {
             if (!Object.hasOwn(state.subjectItems, subject)) {
               unregisteredSubjects.push(subject);
@@ -532,6 +664,20 @@
               if (!requiredKeys.has(key)) {
                 requiredKeys.add(key);
                 requiredItems.push(item);
+              }
+            }
+          }
+
+          if (clubName) {
+            if (!Object.hasOwn(state.clubItems, clubName)) {
+              unregisteredClubs.push(clubName);
+            } else {
+              for (const item of state.clubItems[clubName]) {
+                const key = itemKey(item);
+                if (!requiredKeys.has(key)) {
+                  requiredKeys.add(key);
+                  requiredItems.push(item);
+                }
               }
             }
           }
@@ -558,15 +704,16 @@
           let missingMessage;
           if (missingItems.length) {
             missingMessage = `あと必要なもの: ${missingItems.join("、")}`;
-          } else if (unregisteredSubjects.length) {
-            missingMessage = "登録済みの持ち物に不足はありません（未登録の教科があります）。";
+          } else if (unregisteredSubjects.length || unregisteredClubs.length) {
+            missingMessage = "登録済みの持ち物に不足はありません（持ち物が未登録の教科・部活があります）。";
           } else if (!requiredItems.length) {
             missingMessage = "教科ごとの持ち物を登録してください。";
           } else {
             missingMessage = "あと必要なものはありません。";
           }
           const lines = [
-            `${DAYS[dayIndex]}曜日の授業・部活: ${subjects.join("、") || "なし"}`,
+            `${DAYS[dayIndex]}曜日の授業: ${subjects.join("、") || "なし"}`,
+            `部活: ${clubName || "なし"}`,
             `必要な持ち物: ${requiredItems.length ? requiredItems.join("、") : "登録なし"}`,
             `今持っているもの: ${splitItems(currentItemsInput.value).join("、") || "入力なし"}`,
             oneTimeItemsApply
@@ -577,6 +724,9 @@
           ];
           if (unregisteredSubjects.length) {
             lines.push(`持ち物が未登録の教科: ${unregisteredSubjects.join("、")}`);
+          }
+          if (unregisteredClubs.length) {
+            lines.push(`持ち物が未登録の部活: ${unregisteredClubs.join("、")}`);
           }
 
           packingResult.textContent = lines.join("\n");
@@ -620,8 +770,10 @@
         currentItemsInput.value = state.currentItems;
         renderSchedule();
         renderSubjectItems();
+        renderClubItems();
 
         saveSubjectButton.addEventListener("click", registerSubject);
+        saveClubButton.addEventListener("click", registerClub);
         checkItemsButton.addEventListener("click", checkMissingItems);
         saveLessonExtraButton.addEventListener("click", registerLessonExtra);
         lessonExtraDaySelect.addEventListener("change", updateLessonExtraSubject);
@@ -629,11 +781,23 @@
         checkDaySelect.addEventListener("change", () => {
           state.selectedDay = checkDaySelect.value;
           saveState();
+          checkMissingItems();
         });
         currentItemsInput.addEventListener("input", () => {
           state.currentItems = currentItemsInput.value;
           saveState();
+          checkMissingItems();
         });
+        extraDaySelect.addEventListener("change", checkMissingItems);
+        extraItemsInput.addEventListener("input", checkMissingItems);
+
+        if (
+          state.schedule.some((period) => period.some(Boolean)) ||
+          state.clubSchedule.some(Boolean) ||
+          state.lessonExtras.length
+        ) {
+          checkMissingItems();
+        }
       })();
     </script>
 
