@@ -3,140 +3,207 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>時間割・持ち物チェック</title>
+    <title>忘れ物チェッカー</title>
     <style>
       canvas {
         max-width: 100%;
         height: auto;
       }
+      #missing-items-result {
+        border: 2px solid;
+        padding: 0.75em;
+        font-size: 1.25em;
+        font-weight: 700;
+      }
+      .content-block {
+        border-block-start: 1px solid #888;
+        margin-block-start: 1.5rem;
+        padding-block-start: 1rem;
+      }
+      .content-subsection {
+        border-block-start: 1px solid #bbb;
+        margin-block-start: 1rem;
+        padding-block-start: 0.5rem;
+      }
+      .item-input-grid {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 1rem;
+      }
+      .feature-grid {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 1.5rem;
+        align-items: start;
+        margin-block-start: 1.5rem;
+      }
+      .feature-grid > .content-block {
+        margin-block-start: 0;
+      }
+      label {
+        display: block;
+        margin-block: 0.75rem;
+      }
+      input,
+      textarea,
+      select {
+        background-color: #eaf4ff;
+      }
+      textarea {
+        display: block;
+        margin-block-start: 0.25rem;
+      }
+      @media (max-width: 40rem) {
+        .item-input-grid,
+        .feature-grid {
+          grid-template-columns: 1fr;
+        }
+      }
     </style>
   </head>
   <body>
     <section aria-labelledby="packing-title">
-      <h1 id="packing-title">時間割・持ち物チェック</h1>
-      <p>時間割と教科ごとの持ち物を登録すると、その日に必要な荷物と不足分を確認できます。</p>
+      <h1 id="packing-title">忘れ物チェッカー</h1>
 
-      <h2>時間割</h2>
-      <p>各曜日・時限の教科を入力してください。入力内容はこのブラウザに保存されます。</p>
-      <table>
-        <caption>曜日ごとの時間割</caption>
-        <thead>
-          <tr>
-            <th scope="col">時限</th>
-            <th scope="col">月曜日</th>
-            <th scope="col">火曜日</th>
-            <th scope="col">水曜日</th>
-            <th scope="col">木曜日</th>
-            <th scope="col">金曜日</th>
-            <th scope="col">土曜日</th>
-          </tr>
-        </thead>
-        <tbody id="schedule-body"></tbody>
-      </table>
+      <section class="content-block" aria-label="持ち物">
+        <div class="item-input-grid">
+          <section class="content-subsection" aria-labelledby="every-lesson-title">
+            <h3 id="every-lesson-title">毎回の授業に必要な持ち物</h3>
+            <label>
+              共通の持ち物
+              <textarea id="every-lesson-items" rows="2" placeholder="筆箱、連絡帳"></textarea>
+            </label>
+          </section>
+          <section class="content-subsection" aria-labelledby="lesson-extra-title">
+            <h3 id="lesson-extra-title">次の授業だけ必要なもの</h3>
+            <label>
+              曜日
+              <select id="lesson-extra-day"></select>
+            </label>
+            <fieldset>
+              <legend>対象の授業（複数選択可）</legend>
+              <div id="lesson-extra-targets"></div>
+            </fieldset>
+            <label>
+              次の授業だけ必要な持ち物（複数可）
+              <textarea id="lesson-extra-items" rows="3" placeholder="裁縫セット、絵の具、画用紙"></textarea>
+            </label>
+            <button id="save-lesson-extra" type="button">次の授業に登録</button>
+            <table>
+              <caption>登録中の次回授業用持ち物</caption>
+              <thead>
+                <tr>
+                  <th scope="col">授業</th>
+                  <th scope="col">追加する持ち物</th>
+                  <th scope="col">操作</th>
+                </tr>
+              </thead>
+              <tbody id="lesson-extra-body"></tbody>
+            </table>
+          </section>
+        </div>
+      </section>
 
-      <h2>教科ごとの持ち物</h2>
-      <p>時間割に入力した教科名と同じ名前で登録してください。</p>
-      <p>持ち物は「、」または改行で区切って入力してください。</p>
-      <label>
-        教科
-        <input id="subject-name" type="text" list="subject-options" autocomplete="off" />
-      </label>
-      <datalist id="subject-options"></datalist>
-      <label>
-        持ち物
-        <textarea id="subject-items" rows="2" placeholder="教科書、ノート、筆箱"></textarea>
-      </label>
-      <button id="save-subject" type="button">教科の持ち物を登録</button>
-      <table>
-        <caption>登録済みの教科と持ち物</caption>
-        <thead>
-          <tr>
-            <th scope="col">教科</th>
-            <th scope="col">持ち物</th>
-            <th scope="col">操作</th>
-          </tr>
-        </thead>
-        <tbody id="subject-items-body"></tbody>
-      </table>
+      <section class="content-block" aria-labelledby="schedule-title">
+        <h2 id="schedule-title">時間割</h2>
+        <table>
+          <caption>曜日ごとの時間割</caption>
+          <thead>
+            <tr>
+              <th scope="col">時限</th>
+              <th scope="col">月曜日</th>
+              <th scope="col">火曜日</th>
+              <th scope="col">水曜日</th>
+              <th scope="col">木曜日</th>
+              <th scope="col">金曜日</th>
+              <th scope="col">土曜日</th>
+            </tr>
+          </thead>
+          <tbody id="schedule-body"></tbody>
+        </table>
+        <button id="save-schedule-items" type="button">時間割・授業の持ち物を保存</button>
+        <p id="schedule-save-status" role="status">入力内容は自動保存されます。</p>
+      </section>
 
-      <h2>部活ごとの持ち物</h2>
-      <p>時間割の部活欄と同じ名前で、部活ごとの持ち物を登録してください。</p>
-      <label>
-        部活名
-        <input id="club-name" type="text" placeholder="例: バスケットボール部" />
-      </label>
-      <label>
-        持ち物
-        <textarea id="club-items" rows="2" placeholder="練習着、シューズ、水筒"></textarea>
-      </label>
-      <button id="save-club" type="button">部活の持ち物を登録</button>
-      <table>
-        <caption>登録済みの部活と持ち物</caption>
-        <thead>
-          <tr>
-            <th scope="col">部活</th>
-            <th scope="col">持ち物</th>
-            <th scope="col">操作</th>
-          </tr>
-        </thead>
-        <tbody id="club-items-body"></tbody>
-      </table>
+      <section class="content-block" aria-labelledby="subject-items-title">
+        <h2 id="subject-items-title">教科ごとの持ち物</h2>
+        <label>
+          教科
+          <input id="subject-name" type="text" list="subject-options" autocomplete="off" />
+        </label>
+        <datalist id="subject-options"></datalist>
+        <label>
+          持ち物
+          <textarea id="subject-items" rows="2" placeholder="教科書、ノート、筆箱"></textarea>
+        </label>
+        <button id="save-subject" type="button">教科の持ち物を登録</button>
+        <table>
+          <caption>登録済みの教科と持ち物</caption>
+          <thead>
+            <tr>
+              <th scope="col">教科</th>
+              <th scope="col">持ち物</th>
+              <th scope="col">操作</th>
+            </tr>
+          </thead>
+          <tbody id="subject-items-body"></tbody>
+        </table>
+      </section>
 
-      <h2>今日の荷物を確認</h2>
-      <label>
-        曜日
-        <select id="check-day"></select>
-      </label>
-      <label>
-        今持っているもの
-        <textarea id="current-items" rows="3" placeholder="筆箱、数学の教科書"></textarea>
-      </label>
-      <p>持ち物は「、」または改行で区切って入力してください。</p>
-      <p>今持っているものを入力すると、不足している持ち物が自動で更新されます。</p>
-      <h3>次の授業だけ必要なもの</h3>
-      <p>次の授業の曜日と時限を選ぶと、時間割の教科名が表示されます。授業が終わったら登録を削除してください。</p>
-      <label>
-        曜日
-        <select id="lesson-extra-day"></select>
-      </label>
-      <label>
-        時限
-        <select id="lesson-extra-period"></select>
-      </label>
-      <p id="lesson-extra-subject" role="status"></p>
-      <label>
-        次の授業だけ必要な持ち物
-        <textarea id="lesson-extra-items" rows="2" placeholder="裁縫セット"></textarea>
-      </label>
-      <button id="save-lesson-extra" type="button">次の授業に登録</button>
-      <table>
-        <caption>登録中の次回授業用持ち物</caption>
-        <thead>
-          <tr>
-            <th scope="col">授業</th>
-            <th scope="col">追加する持ち物</th>
-            <th scope="col">操作</th>
-          </tr>
-        </thead>
-        <tbody id="lesson-extra-body"></tbody>
-      </table>
-      <label>
-        今回だけ必要なものの曜日
-        <select id="extra-day"></select>
-      </label>
-      <label>
-        今回だけ必要な持ち物・提出物
-        <textarea id="extra-items" rows="2" placeholder="提出書類、集金袋"></textarea>
-      </label>
-      <p>指定した曜日の確認にだけ追加され、ブラウザには保存されません。</p>
-      <button id="check-items" type="button">不足している持ち物を確認</button>
-      <p id="packing-status" role="status">時間割と教科ごとの持ち物を登録してください。</p>
-      <pre id="packing-result"></pre>
+      <section class="content-block" aria-labelledby="club-items-title">
+        <h2 id="club-items-title">部活ごとの持ち物</h2>
+        <label>
+          部活名（時間割と同じ名前）
+          <input id="club-name" type="text" placeholder="例: バスケットボール部" />
+        </label>
+        <label>
+          その部活で必要な持ち物
+          <textarea id="club-items" rows="2" placeholder="練習着、シューズ、水筒"></textarea>
+        </label>
+        <button id="save-club" type="button">部活の持ち物を登録</button>
+        <table>
+          <caption>登録済みの部活と持ち物</caption>
+          <thead>
+            <tr>
+              <th scope="col">部活</th>
+              <th scope="col">持ち物</th>
+              <th scope="col">操作</th>
+            </tr>
+          </thead>
+          <tbody id="club-items-body"></tbody>
+        </table>
+      </section>
+
     </section>
 
-    <section aria-labelledby="image-demo-title">
+    <div class="feature-grid">
+      <section class="content-block" aria-labelledby="packing-check-title">
+        <h2 id="packing-check-title">今日の荷物を確認</h2>
+        <label>
+          曜日
+          <select id="check-day"></select>
+        </label>
+        <label>
+          今持っているもの
+          <textarea id="current-items" rows="3" placeholder="筆箱、数学の教科書"></textarea>
+        </label>
+        <button id="reset-current-items" type="button">今持っているものをリセット</button>
+
+        <button id="check-items" type="button">不足している持ち物を確認</button>
+        <p id="packing-status" role="status">時間割と教科ごとの持ち物を登録してください。</p>
+        <div id="missing-items-panel" hidden>
+          <h3>あと必要なもの（不足している持ち物）</h3>
+          <p id="missing-items-result" role="status"></p>
+        </div>
+        <div id="extra-items-panel" hidden>
+          <h3>余分なもの</h3>
+          <p id="extra-items-result" role="status"></p>
+        </div>
+        <pre id="packing-result"></pre>
+      </section>
+
+    <section class="content-block" aria-labelledby="image-demo-title">
       <h2 id="image-demo-title">画像認識デモ</h2>
-      <p>画像を選び、WebGPUで物体検出を実行します。</p>
       <p>
         使用モデル:
         <a href="https://huggingface.co/onnx-community/yolov10n" target="_blank" rel="noreferrer">
@@ -156,7 +223,7 @@
           min="0"
           max="1"
           step="0.05"
-          value="0.4"
+          value="0.2"
         />
       </label>
       <button id="run-button" type="button">物体を検出</button>
@@ -171,6 +238,9 @@
         const PERIODS = 6;
         const STORAGE_KEY = "school-packing-planner-v1";
         const scheduleBody = document.querySelector("#schedule-body");
+        const everyLessonItemsInput = document.querySelector("#every-lesson-items");
+        const saveScheduleItemsButton = document.querySelector("#save-schedule-items");
+        const scheduleSaveStatus = document.querySelector("#schedule-save-status");
         const subjectNameInput = document.querySelector("#subject-name");
         const subjectItemsInput = document.querySelector("#subject-items");
         const saveSubjectButton = document.querySelector("#save-subject");
@@ -181,17 +251,19 @@
         const clubItemsBody = document.querySelector("#club-items-body");
         const subjectOptions = document.querySelector("#subject-options");
         const checkDaySelect = document.querySelector("#check-day");
-        const extraDaySelect = document.querySelector("#extra-day");
         const lessonExtraDaySelect = document.querySelector("#lesson-extra-day");
-        const lessonExtraPeriodSelect = document.querySelector("#lesson-extra-period");
-        const lessonExtraSubject = document.querySelector("#lesson-extra-subject");
+        const lessonExtraTargets = document.querySelector("#lesson-extra-targets");
         const lessonExtraItemsInput = document.querySelector("#lesson-extra-items");
         const saveLessonExtraButton = document.querySelector("#save-lesson-extra");
         const lessonExtraBody = document.querySelector("#lesson-extra-body");
         const currentItemsInput = document.querySelector("#current-items");
-        const extraItemsInput = document.querySelector("#extra-items");
+        const resetCurrentItemsButton = document.querySelector("#reset-current-items");
         const checkItemsButton = document.querySelector("#check-items");
         const packingStatus = document.querySelector("#packing-status");
+        const missingItemsPanel = document.querySelector("#missing-items-panel");
+        const missingItemsResult = document.querySelector("#missing-items-result");
+        const extraItemsPanel = document.querySelector("#extra-items-panel");
+        const extraItemsResult = document.querySelector("#extra-items-result");
         const packingResult = document.querySelector("#packing-result");
 
         function emptySchedule() {
@@ -220,7 +292,7 @@
             if (saved.subjectItems && typeof saved.subjectItems === "object") {
               for (const [subject, items] of Object.entries(saved.subjectItems)) {
                 if (typeof subject === "string" && Array.isArray(items)) {
-                  subjectItems[subject] = items.filter((item) => typeof item === "string");
+                  subjectItems[subject] = normalizeItems(items);
                 }
               }
             }
@@ -229,7 +301,7 @@
             if (saved.clubItems && typeof saved.clubItems === "object") {
               for (const [club, items] of Object.entries(saved.clubItems)) {
                 if (typeof club === "string" && Array.isArray(items)) {
-                  clubItems[club] = items.filter((item) => typeof item === "string");
+                  clubItems[club] = normalizeItems(items);
                 }
               }
             } else {
@@ -253,8 +325,9 @@
                   .map((extra) => ({
                     day: extra.day,
                     period: extra.period,
-                    items: extra.items.filter((item) => typeof item === "string"),
+                    items: normalizeItems(extra.items),
                   }))
+                  .filter((extra) => extra.items.length > 0)
               : [];
 
             return {
@@ -263,6 +336,7 @@
               subjectItems,
               clubItems,
               lessonExtras,
+              everyLessonItems: typeof saved.everyLessonItems === "string" ? saved.everyLessonItems : "",
               selectedDay: DAYS.includes(saved.selectedDay) ? saved.selectedDay : DAYS[0],
               currentItems: typeof saved.currentItems === "string" ? saved.currentItems : "",
             };
@@ -278,6 +352,7 @@
           subjectItems: {},
           clubItems: {},
           lessonExtras: [],
+          everyLessonItems: "",
           selectedDay: DAYS[0],
           currentItems: "",
         };
@@ -288,23 +363,59 @@
           try {
             localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
             packingStatus.textContent = "入力内容をこのブラウザに保存しました。";
+            return true;
           } catch (error) {
             console.error(error);
             packingStatus.textContent = "ブラウザに保存できませんでした。";
+            return false;
           }
         }
 
-        function splitItems(value) {
+        function saveScheduleAndLessonItems() {
+          for (let period = 0; period < PERIODS; period++) {
+            for (let day = 0; day < DAYS.length; day++) {
+              state.schedule[period][day] =
+                scheduleBody.rows[period]?.cells[day + 1]?.querySelector("input")?.value ?? "";
+            }
+          }
+          for (let day = 0; day < DAYS.length; day++) {
+            state.clubSchedule[day] =
+              scheduleBody.rows[PERIODS]?.cells[day + 1]?.querySelector("input")?.value ?? "";
+          }
+          state.everyLessonItems = everyLessonItemsInput.value;
+
+          scheduleSaveStatus.textContent = saveState()
+            ? "時間割と授業の持ち物を保存しました。"
+            : "保存できませんでした。ブラウザの保存設定を確認してください。";
+        }
+
+        function normalizeItems(items) {
           return [...new Set(
-            value
-              .split(/[、,，\n]/)
+            items
+              .filter((item) => typeof item === "string")
               .map((item) => item.trim())
-              .filter(Boolean),
+              .filter((item) => item && itemKey(item) !== "なし"),
           )];
+        }
+
+        function splitItems(value) {
+          return normalizeItems(value.split(/[、,，\n]/));
+        }
+
+        function hasExplicitNoItems(value) {
+          return value.split(/[、,，\n]/).some((item) => itemKey(item) === "なし");
         }
 
         function itemKey(value) {
           return value.normalize("NFKC").trim().toLocaleLowerCase("ja");
+        }
+
+        function getClubNames() {
+          return new Set(
+            [...state.clubSchedule, ...Object.keys(state.clubItems)]
+              .map((club) => itemKey(club))
+              .filter(Boolean),
+          );
         }
 
         function renderSchedule() {
@@ -324,9 +435,16 @@
               input.setAttribute("list", "subject-options");
               input.setAttribute("aria-label", `${DAYS[day]}曜日 ${period + 1}時間目の教科`);
               input.addEventListener("input", () => {
+                if (getClubNames().has(itemKey(input.value))) {
+                  input.value = state.schedule[period][day];
+                  packingStatus.textContent = "部活名は時間割の「部活」行に入力してください。";
+                  return;
+                }
                 state.schedule[period][day] = input.value;
-                saveState();
-                updateLessonExtraSubject();
+                scheduleSaveStatus.textContent = saveState()
+                  ? "時間割を自動保存しました。"
+                  : "時間割を保存できませんでした。";
+                renderLessonExtraTargets();
                 renderLessonExtras();
                 checkMissingItems();
               });
@@ -351,8 +469,11 @@
             input.setAttribute("aria-label", `${DAYS[day]}曜日の部活`);
             input.addEventListener("input", () => {
               state.clubSchedule[day] = input.value;
-              saveState();
-              updateLessonExtraSubject();
+              scheduleSaveStatus.textContent = saveState()
+                ? "時間割を自動保存しました。"
+                : "時間割を保存できませんでした。";
+              renderSubjectOptions();
+              renderLessonExtraTargets();
               renderLessonExtras();
               checkMissingItems();
             });
@@ -361,17 +482,19 @@
           }
           scheduleBody.append(clubRow);
           renderSubjectOptions();
-          updateLessonExtraSubject();
+          renderLessonExtraTargets();
           renderLessonExtras();
         }
 
         function renderSubjectOptions() {
+          const clubNames = getClubNames();
           const scheduledSubjects = state.schedule.flat().map((subject) => subject.trim());
           const subjects = [...new Set([
             ...Object.keys(state.subjectItems),
-            ...state.clubSchedule.map((club) => club.trim()),
             ...scheduledSubjects.filter(Boolean),
-          ].filter(Boolean))];
+          ].map((subject) => subject.trim()).filter((subject) =>
+            subject && !clubNames.has(itemKey(subject)),
+          ))];
           subjectOptions.replaceChildren(
             ...subjects.map((subject) => {
               const option = document.createElement("option");
@@ -388,16 +511,33 @@
           return state.schedule[Number(period) - 1]?.[dayIndex]?.trim() ?? "";
         }
 
-        function updateLessonExtraSubject() {
+        function renderLessonExtraTargets() {
           const day = lessonExtraDaySelect.value;
-          const period = lessonExtraPeriodSelect.value === "club"
-            ? "club"
-            : Number(lessonExtraPeriodSelect.value);
-          const subject = scheduledLessonName(day, period);
-          const slot = period === "club" ? "部活" : `${period}時間目`;
-          lessonExtraSubject.textContent = subject
-            ? `対象の授業: ${day}曜日 ${slot}「${subject}」`
-            : `対象: ${day}曜日 ${slot}（時間割に教科・部活名がありません）`;
+          const dayIndex = DAYS.indexOf(day);
+          const lessons = state.schedule.flatMap((period, index) => {
+            const subject = period[dayIndex]?.trim() ?? "";
+            return subject ? [{ period: index + 1, subject }] : [];
+          });
+          const club = state.clubSchedule[dayIndex]?.trim() ?? "";
+          if (club) lessons.push({ period: "club", subject: club });
+
+          if (!lessons.length) {
+            lessonExtraTargets.textContent = "選んだ曜日の時間割に授業・部活がありません。";
+            return;
+          }
+
+          lessonExtraTargets.replaceChildren(
+            ...lessons.map(({ period, subject }) => {
+              const label = document.createElement("label");
+              const checkbox = document.createElement("input");
+              checkbox.type = "checkbox";
+              checkbox.name = "lesson-extra-target";
+              checkbox.value = String(period);
+              const slot = period === "club" ? "部活" : `${period}時間目`;
+              label.append(checkbox, document.createTextNode(` ${slot}「${subject}」`));
+              return label;
+            }),
+          );
         }
 
         function lessonExtraTitle(extra) {
@@ -433,34 +573,48 @@
 
         function registerLessonExtra() {
           const day = lessonExtraDaySelect.value;
-          const period = lessonExtraPeriodSelect.value === "club"
-            ? "club"
-            : Number(lessonExtraPeriodSelect.value);
-          const subject = scheduledLessonName(day, period);
+          const targets = [...lessonExtraTargets.querySelectorAll(
+            'input[name="lesson-extra-target"]:checked',
+          )].map((checkbox) => checkbox.value === "club" ? "club" : Number(checkbox.value));
           const items = splitItems(lessonExtraItemsInput.value);
 
-          if (!subject) {
-            packingStatus.textContent = "先に時間割へ対象の教科・部活名を入力してください。";
+          if (!targets.length) {
+            packingStatus.textContent = "登録する授業を1つ以上選んでください。";
+            lessonExtraTargets.querySelector('input[name="lesson-extra-target"]')?.focus();
             return;
           }
-          if (!items.length) {
+          if (!items.length && !hasExplicitNoItems(lessonExtraItemsInput.value)) {
             packingStatus.textContent = "次の授業だけ必要な持ち物を入力してください。";
             lessonExtraItemsInput.focus();
             return;
           }
 
-          const existing = state.lessonExtras.find((extra) =>
-            extra.day === day && extra.period === period,
-          );
-          if (existing) {
-            existing.items = items;
-          } else {
-            state.lessonExtras.push({ day, period, items });
+          if (!items.length) {
+            state.lessonExtras = state.lessonExtras.filter((extra) =>
+              extra.day !== day || !targets.includes(extra.period),
+            );
+            lessonExtraItemsInput.value = "";
+            renderLessonExtras();
+            saveState();
+            packingStatus.textContent = "選んだ授業の追加持ち物を解除しました。";
+            checkMissingItems();
+            return;
+          }
+
+          for (const period of targets) {
+            const extra = state.lessonExtras.find((entry) =>
+              entry.day === day && entry.period === period,
+            );
+            if (extra) {
+              extra.items = normalizeItems([...extra.items, ...items]);
+            } else {
+              state.lessonExtras.push({ day, period, items: [...items] });
+            }
           }
           lessonExtraItemsInput.value = "";
           renderLessonExtras();
           saveState();
-          packingStatus.textContent = `次の授業「${subject}」に持ち物を登録しました。`;
+          packingStatus.textContent = `選んだ授業${targets.length}件に持ち物を登録しました。`;
           checkMissingItems();
         }
 
@@ -472,7 +626,7 @@
             subjectCell.scope = "row";
             subjectCell.textContent = subject;
             const itemsCell = document.createElement("td");
-            itemsCell.textContent = items.join("、");
+            itemsCell.textContent = items.join("、") || "なし";
             const actionsCell = document.createElement("td");
 
             const editButton = document.createElement("button");
@@ -512,7 +666,7 @@
             clubCell.scope = "row";
             clubCell.textContent = club;
             const itemsCell = document.createElement("td");
-            itemsCell.textContent = items.join("、");
+            itemsCell.textContent = items.join("、") || "なし";
             const actionsCell = document.createElement("td");
 
             const editButton = document.createElement("button");
@@ -558,7 +712,7 @@
             clubNameInput.focus();
             return;
           }
-          if (!items.length) {
+          if (!items.length && !hasExplicitNoItems(clubItemsInput.value)) {
             packingStatus.textContent = "その部活で必要な持ち物を入力してください。";
             clubItemsInput.focus();
             return;
@@ -579,6 +733,7 @@
           state.clubItems[club] = items;
           resetClubForm();
           renderClubItems();
+          renderSubjectOptions();
           saveState();
           checkMissingItems();
         }
@@ -598,7 +753,7 @@
             subjectNameInput.focus();
             return;
           }
-          if (!items.length) {
+          if (!items.length && !hasExplicitNoItems(subjectItemsInput.value)) {
             packingStatus.textContent = "その教科で必要な持ち物を入力してください。";
             subjectItemsInput.focus();
             return;
@@ -630,7 +785,27 @@
           checkMissingItems();
         }
 
-        function checkMissingItems() {
+        function checkMissingItems(showResult = false) {
+          if (!showResult) {
+            missingItemsPanel.hidden = true;
+            missingItemsResult.textContent = "";
+            extraItemsPanel.hidden = true;
+            extraItemsResult.textContent = "";
+            packingResult.textContent = "";
+            return;
+          }
+
+          if (!currentItemsInput.value.trim()) {
+            missingItemsPanel.hidden = true;
+            missingItemsResult.textContent = "";
+            extraItemsPanel.hidden = true;
+            extraItemsResult.textContent = "";
+            packingResult.textContent = "";
+            packingStatus.textContent = "今持っているものを入力してから確認してください。「なし」と入力すると、持ち物がない状態で確認できます。";
+            currentItemsInput.focus();
+            return;
+          }
+
           const dayIndex = DAYS.indexOf(checkDaySelect.value);
           const subjects = [...new Set(
             state.schedule
@@ -638,33 +813,49 @@
               .filter(Boolean),
           )];
           const clubName = state.clubSchedule[dayIndex].trim();
-          const enteredOneTimeItems = splitItems(extraItemsInput.value);
-          const oneTimeItemsApply = extraDaySelect.value === checkDaySelect.value;
-          const oneTimeItems = oneTimeItemsApply ? enteredOneTimeItems : [];
           const lessonExtrasForDay = state.lessonExtras.filter(
             (extra) => extra.day === checkDaySelect.value,
           );
-          if (!subjects.length && !clubName && !oneTimeItems.length && !lessonExtrasForDay.length) {
+          if (!subjects.length && !clubName && !lessonExtrasForDay.length) {
             packingStatus.textContent = "選んだ曜日の時間割を入力してください。";
+            missingItemsResult.textContent = "";
+            missingItemsPanel.hidden = true;
+            extraItemsResult.textContent = "";
+            extraItemsPanel.hidden = true;
             packingResult.textContent = "";
             return;
           }
 
           const requiredItems = [];
           const requiredKeys = new Set();
+          const requiredSubjectNames = new Map();
           const unregisteredSubjects = [];
           const unregisteredClubs = [];
+          const addRequiredItem = (item, subject = "") => {
+            const key = itemKey(item);
+            if (!requiredKeys.has(key)) {
+              requiredKeys.add(key);
+              requiredItems.push(item);
+            }
+            if (subject) {
+              const subjectsForItem = requiredSubjectNames.get(key) ?? new Set();
+              subjectsForItem.add(itemKey(subject));
+              requiredSubjectNames.set(key, subjectsForItem);
+            }
+          };
+
+          if (subjects.length || clubName) {
+            for (const item of splitItems(everyLessonItemsInput.value)) {
+              addRequiredItem(item);
+            }
+          }
           for (const subject of subjects) {
             if (!Object.hasOwn(state.subjectItems, subject)) {
               unregisteredSubjects.push(subject);
               continue;
             }
             for (const item of state.subjectItems[subject]) {
-              const key = itemKey(item);
-              if (!requiredKeys.has(key)) {
-                requiredKeys.add(key);
-                requiredItems.push(item);
-              }
+              addRequiredItem(item, subject);
             }
           }
 
@@ -673,54 +864,58 @@
               unregisteredClubs.push(clubName);
             } else {
               for (const item of state.clubItems[clubName]) {
-                const key = itemKey(item);
-                if (!requiredKeys.has(key)) {
-                  requiredKeys.add(key);
-                  requiredItems.push(item);
-                }
+                addRequiredItem(item);
               }
             }
           }
 
-          for (const item of oneTimeItems) {
-            const key = itemKey(item);
-            if (!requiredKeys.has(key)) {
-              requiredKeys.add(key);
-              requiredItems.push(item);
-            }
-          }
           for (const extra of lessonExtrasForDay) {
             for (const item of extra.items) {
-              const key = itemKey(item);
-              if (!requiredKeys.has(key)) {
-                requiredKeys.add(key);
-                requiredItems.push(item);
-              }
+              addRequiredItem(item);
             }
           }
 
           const currentKeys = new Set(splitItems(currentItemsInput.value).map(itemKey));
-          const missingItems = requiredItems.filter((item) => !currentKeys.has(itemKey(item)));
+          const missingItems = requiredItems.filter((item) => {
+            const key = itemKey(item);
+            if (currentKeys.has(key)) return false;
+            const subjectsForItem = requiredSubjectNames.get(key);
+            if (key !== itemKey("教科書")) return true;
+            const textbookSuffix = itemKey("の教科書");
+            if (!subjectsForItem?.size) {
+              return ![...currentKeys].some((currentKey) => currentKey.endsWith(textbookSuffix));
+            }
+            return [...subjectsForItem].some((subjectKey) =>
+              !currentKeys.has(itemKey(`${subjectKey}の教科書`)),
+            );
+          });
+          const requiredSubjectTextbooks =
+            requiredSubjectNames.get(itemKey("教科書")) ?? new Set();
+          const textbookSuffix = itemKey("の教科書");
+          const extraItems = splitItems(currentItemsInput.value).filter((item) => {
+            const key = itemKey(item);
+            if (requiredKeys.has(key)) return false;
+            if (!key.endsWith(textbookSuffix)) return true;
+            if (!requiredKeys.has(itemKey("教科書"))) return true;
+            if (!requiredSubjectTextbooks.size) return false;
+            const subjectKey = key.slice(0, -textbookSuffix.length);
+            return !requiredSubjectTextbooks.has(subjectKey);
+          });
           let missingMessage;
           if (missingItems.length) {
             missingMessage = `あと必要なもの: ${missingItems.join("、")}`;
           } else if (unregisteredSubjects.length || unregisteredClubs.length) {
             missingMessage = "登録済みの持ち物に不足はありません（持ち物が未登録の教科・部活があります）。";
-          } else if (!requiredItems.length) {
-            missingMessage = "教科ごとの持ち物を登録してください。";
           } else {
             missingMessage = "あと必要なものはありません。";
           }
           const lines = [
             `${DAYS[dayIndex]}曜日の授業: ${subjects.join("、") || "なし"}`,
             `部活: ${clubName || "なし"}`,
+            `毎回の授業に必要な持ち物: ${splitItems(everyLessonItemsInput.value).join("、") || "なし"}`,
             `必要な持ち物: ${requiredItems.length ? requiredItems.join("、") : "登録なし"}`,
             `今持っているもの: ${splitItems(currentItemsInput.value).join("、") || "入力なし"}`,
-            oneTimeItemsApply
-              ? `今回だけ必要なもの: ${oneTimeItems.join("、") || "なし"}`
-              : `今回だけ必要なもの（${extraDaySelect.value}曜日分）: ${enteredOneTimeItems.join("、") || "なし"}（この日の確認には含めていません）`,
             `次の授業だけ必要なもの: ${lessonExtrasForDay.map((extra) => `${lessonExtraTitle(extra)}: ${extra.items.join("、")}`).join(" / ") || "なし"}`,
-            missingMessage,
           ];
           if (unregisteredSubjects.length) {
             lines.push(`持ち物が未登録の教科: ${unregisteredSubjects.join("、")}`);
@@ -730,6 +925,12 @@
           }
 
           packingResult.textContent = lines.join("\n");
+          missingItemsResult.textContent = missingMessage;
+          missingItemsPanel.hidden = false;
+          extraItemsResult.textContent = extraItems.length
+            ? extraItems.join("、")
+            : "余分なものはありません。";
+          extraItemsPanel.hidden = false;
           packingStatus.textContent = "確認しました。";
           state.selectedDay = checkDaySelect.value;
           state.currentItems = currentItemsInput.value;
@@ -743,30 +944,14 @@
           checkOption.textContent = `${day}曜日`;
           checkDaySelect.append(checkOption);
 
-          const extraOption = document.createElement("option");
-          extraOption.value = day;
-          extraOption.textContent = `${day}曜日`;
-          extraDaySelect.append(extraOption);
-
           const lessonDayOption = document.createElement("option");
           lessonDayOption.value = day;
           lessonDayOption.textContent = `${day}曜日`;
           lessonExtraDaySelect.append(lessonDayOption);
         }
-        for (let period = 1; period <= PERIODS; period++) {
-          const option = document.createElement("option");
-          option.value = String(period);
-          option.textContent = `${period}時間目`;
-          lessonExtraPeriodSelect.append(option);
-        }
-        const clubPeriodOption = document.createElement("option");
-        clubPeriodOption.value = "club";
-        clubPeriodOption.textContent = "部活";
-        lessonExtraPeriodSelect.append(clubPeriodOption);
         checkDaySelect.value = state.selectedDay;
-        extraDaySelect.value = state.selectedDay;
         lessonExtraDaySelect.value = state.selectedDay;
-        lessonExtraPeriodSelect.value = "1";
+        everyLessonItemsInput.value = state.everyLessonItems;
         currentItemsInput.value = state.currentItems;
         renderSchedule();
         renderSubjectItems();
@@ -774,23 +959,37 @@
 
         saveSubjectButton.addEventListener("click", registerSubject);
         saveClubButton.addEventListener("click", registerClub);
-        checkItemsButton.addEventListener("click", checkMissingItems);
+        saveScheduleItemsButton.addEventListener("click", saveScheduleAndLessonItems);
+        resetCurrentItemsButton.addEventListener("click", () => {
+          currentItemsInput.value = "";
+          currentItemsInput.dispatchEvent(new Event("input", { bubbles: true }));
+          currentItemsInput.focus();
+        });
+        checkItemsButton.addEventListener("click", () => checkMissingItems(true));
         saveLessonExtraButton.addEventListener("click", registerLessonExtra);
-        lessonExtraDaySelect.addEventListener("change", updateLessonExtraSubject);
-        lessonExtraPeriodSelect.addEventListener("change", updateLessonExtraSubject);
+        lessonExtraDaySelect.addEventListener("change", renderLessonExtraTargets);
         checkDaySelect.addEventListener("change", () => {
           state.selectedDay = checkDaySelect.value;
           saveState();
           checkMissingItems();
         });
-        currentItemsInput.addEventListener("input", () => {
-          state.currentItems = currentItemsInput.value;
-          saveState();
+        everyLessonItemsInput.addEventListener("input", () => {
+          state.everyLessonItems = everyLessonItemsInput.value;
+          scheduleSaveStatus.textContent = saveState()
+            ? "毎回の授業の持ち物を自動保存しました。"
+            : "毎回の授業の持ち物を保存できませんでした。";
           checkMissingItems();
         });
-        extraDaySelect.addEventListener("change", checkMissingItems);
-        extraItemsInput.addEventListener("input", checkMissingItems);
-
+        currentItemsInput.addEventListener("input", () => {
+          state.currentItems = currentItemsInput.value;
+          const saved = saveState();
+          checkMissingItems();
+          if (saved) {
+            packingStatus.textContent = currentItemsInput.value.trim()
+              ? "持ち物を保存しました。「不足している持ち物を確認」を押してください。"
+              : "持ち物を保存しました。入力してから確認してください。";
+          }
+        });
         if (
           state.schedule.some((period) => period.some(Boolean)) ||
           state.clubSchedule.some(Boolean) ||
@@ -807,22 +1006,110 @@
         AutoProcessor,
         RawImage,
         env,
+        pipeline,
       } from "https://cdn.jsdelivr.net/npm/@huggingface/transformers@3.8.1";
 
       env.allowLocalModels = false;
 
       const MODEL_ID = "onnx-community/yolov10n";
+      const BOOK_OCR_MODEL_ID = "onnx-community/manga-ocr-base-ONNX";
       const MAX_IMAGE_SIDE = 960;
+      const MAX_OCR_IMAGE_SIDE = 2048;
       const imageFileInput = document.querySelector("#image-file");
       const thresholdInput = document.querySelector("#threshold");
       const runButton = document.querySelector("#run-button");
       const statusElement = document.querySelector("#status");
       const resultCanvas = document.querySelector("#result-canvas");
       const countsElement = document.querySelector("#counts");
+      const currentItemsInput = document.querySelector("#current-items");
       const resultContext = resultCanvas.getContext("2d");
+
+      const JAPANESE_LABELS = {
+        person: "人",
+        bicycle: "自転車",
+        car: "車",
+        motorcycle: "オートバイ",
+        airplane: "飛行機",
+        bus: "バス",
+        train: "電車",
+        truck: "トラック",
+        boat: "ボート",
+        "traffic light": "信号機",
+        "fire hydrant": "消火栓",
+        "stop sign": "一時停止標識",
+        "parking meter": "パーキングメーター",
+        bench: "ベンチ",
+        bird: "鳥",
+        cat: "猫",
+        dog: "犬",
+        horse: "馬",
+        sheep: "羊",
+        cow: "牛",
+        elephant: "象",
+        bear: "熊",
+        zebra: "シマウマ",
+        giraffe: "キリン",
+        backpack: "リュックサック",
+        umbrella: "傘",
+        handbag: "ハンドバッグ",
+        tie: "ネクタイ",
+        suitcase: "スーツケース",
+        frisbee: "フリスビー",
+        skis: "スキー板",
+        snowboard: "スノーボード",
+        "sports ball": "ボール",
+        kite: "凧",
+        "baseball bat": "野球バット",
+        "baseball glove": "野球グローブ",
+        skateboard: "スケートボード",
+        surfboard: "サーフボード",
+        "tennis racket": "テニスラケット",
+        bottle: "ボトル",
+        "wine glass": "ワイングラス",
+        cup: "カップ",
+        fork: "フォーク",
+        knife: "ナイフ",
+        spoon: "スプーン",
+        bowl: "ボウル",
+        banana: "バナナ",
+        apple: "りんご",
+        sandwich: "サンドイッチ",
+        orange: "オレンジ",
+        broccoli: "ブロッコリー",
+        carrot: "にんじん",
+        "hot dog": "ホットドッグ",
+        pizza: "ピザ",
+        donut: "ドーナツ",
+        cake: "ケーキ",
+        chair: "いす",
+        couch: "ソファ",
+        "potted plant": "鉢植え",
+        bed: "ベッド",
+        "dining table": "ダイニングテーブル",
+        toilet: "トイレ",
+        tv: "テレビ",
+        laptop: "ノートパソコン",
+        mouse: "マウス",
+        remote: "リモコン",
+        keyboard: "キーボード",
+        "cell phone": "携帯電話",
+        microwave: "電子レンジ",
+        oven: "オーブン",
+        toaster: "トースター",
+        sink: "シンク",
+        refrigerator: "冷蔵庫",
+        book: "本",
+        clock: "時計",
+        vase: "花瓶",
+        scissors: "はさみ",
+        "teddy bear": "ぬいぐるみ",
+        "hair drier": "ドライヤー",
+        toothbrush: "歯ブラシ",
+      };
 
       let model;
       let processor;
+      let bookOcr;
       let busy = false;
 
       async function requireWebGPU() {
@@ -858,6 +1145,155 @@
         if (!processor) {
           processor = await AutoProcessor.from_pretrained(MODEL_ID);
         }
+      }
+
+      async function ensureBookOcr() {
+        if (!bookOcr) {
+          bookOcr = await pipeline("image-to-text", BOOK_OCR_MODEL_ID, {
+            device: "webgpu",
+            dtype: "q4",
+            progress_callback: progressCallback,
+          });
+        }
+        return bookOcr;
+      }
+
+      function inferSubjectFromBookTitle(title) {
+        const normalized = title.normalize("NFKC").toLocaleLowerCase("ja");
+        const compact = normalized.replace(/\s+/g, "");
+        const subjectPatterns = [
+          ["英語", /(英語|english|newhorizon|newcrown|sunshine|herewego|bluesky|oneworld|totalenglish)/],
+          ["数学", /(数学|算数|math(?:ematics)?)/],
+          ["国語", /(国語|こくご|現代の国語|言語文化)/],
+          ["理科", /(理科|科学|science|physics|chemistry|biology|物理|化学|生物)/],
+          ["社会", /(社会|地理|歴史|公民|geography|history|civics)/],
+          ["音楽", /(音楽|music)/],
+          ["美術", /(美術|art)/],
+          ["保健体育", /(保健体育|体育|保健|physicaleducation|health)/],
+          ["技術・家庭", /(技術家庭|技術|家庭科|家庭|technology|homeeconomics)/],
+          ["道徳", /(道徳|moral)/],
+        ];
+
+        for (const [subject, pattern] of subjectPatterns) {
+          if (pattern.test(compact)) return subject;
+        }
+        return "";
+      }
+
+      function cropDetection(inputCanvas, detection) {
+        const padding = Math.round(Math.max(detection.width, detection.height) * 0.06);
+        const left = Math.max(0, Math.floor(detection.x - padding));
+        const top = Math.max(0, Math.floor(detection.y - padding));
+        const right = Math.min(
+          inputCanvas.width,
+          Math.ceil(detection.x + detection.width + padding),
+        );
+        const bottom = Math.min(
+          inputCanvas.height,
+          Math.ceil(detection.y + detection.height + padding),
+        );
+        const width = Math.max(1, right - left);
+        const height = Math.max(1, bottom - top);
+        const crop = document.createElement("canvas");
+        crop.width = width;
+        crop.height = height;
+        crop.getContext("2d").drawImage(
+          inputCanvas,
+          left,
+          top,
+          width,
+          height,
+          0,
+          0,
+          width,
+          height,
+        );
+        return crop;
+      }
+
+      function enhanceTextCrop(source) {
+        const scale = Math.min(2, 1024 / Math.max(source.width, source.height));
+        const enhanced = document.createElement("canvas");
+        enhanced.width = Math.max(1, Math.round(source.width * scale));
+        enhanced.height = Math.max(1, Math.round(source.height * scale));
+        const context = enhanced.getContext("2d");
+        context.filter = "grayscale(1) contrast(1.35)";
+        context.drawImage(source, 0, 0, enhanced.width, enhanced.height);
+        context.filter = "none";
+        return enhanced;
+      }
+
+      async function readBookTitles(inputCanvas, detections, scaleX = 1, scaleY = 1) {
+        const books = detections.filter(({ label }) => label === "本");
+        if (!books.length) return [];
+
+        let ocr;
+        try {
+          statusElement.textContent = "本の題名を読むOCRモデルを読み込んでいます…";
+          ocr = await ensureBookOcr();
+        } catch (error) {
+          console.error("本の題名を読み取れませんでした。", error);
+          return books.map((book) => ({
+            book,
+            title: "",
+            subject: "",
+            error: error.message,
+          }));
+        }
+
+        const results = [];
+        for (const [index, book] of books.entries()) {
+          try {
+            statusElement.textContent = `本の題名を読み取っています… (${index + 1}/${books.length})`;
+            const scaledBook = {
+              ...book,
+              x: book.x * scaleX,
+              y: book.y * scaleY,
+              width: book.width * scaleX,
+              height: book.height * scaleY,
+            };
+            const textCrops = [
+              cropDetection(inputCanvas, scaledBook),
+              cropDetection(inputCanvas, {
+                ...scaledBook,
+                height: scaledBook.height * 0.68,
+              }),
+              cropDetection(inputCanvas, {
+                ...scaledBook,
+                y: scaledBook.y + scaledBook.height * 0.16,
+                height: scaledBook.height * 0.68,
+              }),
+            ];
+            textCrops.push(enhanceTextCrop(textCrops[1]));
+            const candidates = [];
+            for (const [cropIndex, crop] of textCrops.entries()) {
+              statusElement.textContent =
+                `本の文字を読み取っています… (${index + 1}/${books.length}・候補 ${cropIndex + 1}/${textCrops.length})`;
+              const output = await ocr(RawImage.fromCanvas(crop), { max_new_tokens: 128 });
+              const text = output?.[0]?.generated_text?.trim() ?? "";
+              if (text) {
+                candidates.push({
+                  text,
+                  subject: inferSubjectFromBookTitle(text),
+                });
+              }
+            }
+            candidates.sort((a, b) =>
+              Number(Boolean(b.subject)) - Number(Boolean(a.subject)) ||
+              b.text.length - a.text.length,
+            );
+            const title = candidates[0]?.text ?? "";
+            const subject = candidates[0]?.subject ?? "";
+            const alternativeTitles = [...new Set(candidates.map(({ text }) => text))];
+            book.subject = subject;
+            book.resultLabel = subject ? `${subject}の教科書` : "本";
+            results.push({ book, title, subject, alternativeTitles, error: "" });
+          } catch (error) {
+            console.error("本の題名を読み取れませんでした。", error);
+            results.push({ book, title: "", subject: "", error: error.message });
+          }
+        }
+        return results;
       }
 
       async function fileToCanvas(file, maxSide = MAX_IMAGE_SIDE) {
@@ -901,16 +1337,24 @@
         const scaleX = inputCanvas.width / newWidth;
         const scaleY = inputCanvas.height / newHeight;
         const detections = [];
+        let bestCandidate = null;
 
         for (let index = 0; index < prediction.dims[1]; index++) {
           const offset = index * 6;
           const [xmin, ymin, xmax, ymax, score, classValue] =
             prediction.data.subarray(offset, offset + 6);
 
-          if (!Number.isFinite(score) || score < threshold) continue;
+          if (![xmin, ymin, xmax, ymax, score, classValue].every(Number.isFinite)) continue;
 
           const classId = Math.round(classValue);
-          const label = model.config.id2label[classId] ?? `class ${classId}`;
+          const modelLabel = model.config.id2label[classId];
+          const label = JAPANESE_LABELS[modelLabel?.trim().toLocaleLowerCase("en")] ??
+            `検出物体${classId}`;
+          if (!bestCandidate || score > bestCandidate.score) {
+            bestCandidate = { label, score };
+          }
+          if (score < threshold) continue;
+
           detections.push({
             x: xmin * scaleX,
             y: ymin * scaleY,
@@ -921,10 +1365,10 @@
           });
         }
 
-        return detections;
+        return { detections, bestCandidate };
       }
 
-      function showDetections(inputCanvas, detections) {
+      function showDetections(inputCanvas, detections, bestCandidate, bookDetails = []) {
         resultCanvas.width = inputCanvas.width;
         resultCanvas.height = inputCanvas.height;
         resultContext.drawImage(inputCanvas, 0, 0);
@@ -934,7 +1378,8 @@
 
         const counts = new Map();
         for (const detection of detections) {
-          counts.set(detection.label, (counts.get(detection.label) ?? 0) + 1);
+          const displayLabel = detection.resultLabel ?? detection.label;
+          counts.set(displayLabel, (counts.get(displayLabel) ?? 0) + 1);
           resultContext.strokeStyle = "lime";
           resultContext.strokeRect(
             detection.x,
@@ -943,7 +1388,7 @@
             detection.height,
           );
 
-          const label = `${detection.label} ${detection.score.toFixed(2)}`;
+          const label = `${displayLabel} ${detection.score.toFixed(2)}`;
           const textY = Math.max(0, detection.y - Math.max(18, inputCanvas.width / 40));
           resultContext.fillStyle = "lime";
           resultContext.fillText(label, detection.x, textY);
@@ -953,7 +1398,45 @@
           ? [...counts]
               .map(([label, count]) => `${label}: ${count}`)
               .join("\n")
-          : "物体は検出されませんでした。";
+          : bestCandidate
+            ? `検出なし。最も高い候補: ${bestCandidate.label}（${bestCandidate.score.toFixed(2)}）。信頼度しきい値を下げて再試行してください。`
+            : "検出候補がありません。対象を画面内に大きく写して再試行してください。";
+
+        if (bookDetails.length) {
+          const lines = bookDetails.map(({ title, subject, error, alternativeTitles }, index) => {
+            if (error) return `本${index + 1}: 題名を読み取れませんでした。${error}`;
+            if (!title) return `本${index + 1}: 題名を読み取れませんでした。`;
+            const titles = alternativeTitles?.length
+              ? alternativeTitles
+              : [title];
+            const titleText = titles.map((candidate) => `「${candidate}」`).join(" / ");
+            return subject
+              ? `本${index + 1}${titleText}: ${subject}の教科書と推測`
+              : `本${index + 1}${titleText}: 教科を推測できませんでした`;
+          });
+          countsElement.textContent += `\n\n本の題名と教科の推測:\n${lines.join("\n")}`;
+        }
+      }
+
+      function reflectDetectionsToCurrentItems(detections) {
+        if (!detections.length) return;
+
+        const existingItems = currentItemsInput.value
+          .split(/[、,，\n]/)
+          .map((item) => item.trim())
+          .filter((item) => item && item.normalize("NFKC").toLocaleLowerCase("ja") !== "なし");
+        const mergedItems = [];
+        const seen = new Set();
+
+        for (const item of [...existingItems, ...detections.map(({ resultLabel, label }) => resultLabel ?? label)]) {
+          const key = item.normalize("NFKC").trim().toLocaleLowerCase("ja");
+          if (seen.has(key)) continue;
+          seen.add(key);
+          mergedItems.push(item);
+        }
+
+        currentItemsInput.value = mergedItems.join("、");
+        currentItemsInput.dispatchEvent(new Event("input", { bubbles: true }));
       }
 
       async function detectObjects() {
@@ -973,6 +1456,7 @@
 
         busy = true;
         runButton.disabled = true;
+        imageFileInput.disabled = true;
         countsElement.textContent = "";
 
         let processed;
@@ -988,9 +1472,35 @@
           statusElement.textContent = "物体を検出しています…";
           processed = await processor(RawImage.fromCanvas(inputCanvas));
           output = await model({ images: processed.pixel_values });
-          const detections = getDetections(output, processed, inputCanvas, threshold);
-          showDetections(inputCanvas, detections);
-          statusElement.textContent = `検出完了: ${detections.length}件`;
+          const { detections, bestCandidate } = getDetections(
+            output,
+            processed,
+            inputCanvas,
+            threshold,
+          );
+          let bookDetails = [];
+          if (detections.some(({ label }) => label === "本")) {
+            statusElement.textContent = "本の文字を読むため高解像度画像を準備しています…";
+            const ocrCanvas = await fileToCanvas(file, MAX_OCR_IMAGE_SIDE);
+            bookDetails = await readBookTitles(
+              ocrCanvas,
+              detections,
+              ocrCanvas.width / inputCanvas.width,
+              ocrCanvas.height / inputCanvas.height,
+            );
+          }
+          showDetections(inputCanvas, detections, bestCandidate, bookDetails);
+          reflectDetectionsToCurrentItems(detections);
+          if (!detections.length) {
+            statusElement.textContent = "物体を検出できませんでした。認識結果は持ち物欄に追加されませんでした。";
+          } else {
+            const inferredBooks = bookDetails.filter(({ subject }) => subject).length;
+            const unreadableBooks = bookDetails.filter(({ error }) => error).length;
+            statusElement.textContent =
+              `検出完了: ${detections.length}件。認識した持ち物を入力欄に反映しました。` +
+              (inferredBooks ? ` 本の教科を${inferredBooks}冊分推測しました。` : "") +
+              (unreadableBooks ? ` 本の題名を読めなかったもの: ${unreadableBooks}冊。` : "");
+          }
         } catch (error) {
           statusElement.textContent = `エラー: ${error.message}`;
           console.error(error);
@@ -999,15 +1509,42 @@
           processed?.pixel_values?.dispose?.();
           busy = false;
           runButton.disabled = false;
+          imageFileInput.disabled = false;
         }
       }
+
+      imageFileInput.addEventListener("change", () => {
+        currentItemsInput.value = "";
+        currentItemsInput.dispatchEvent(new Event("input", { bubbles: true }));
+        countsElement.textContent = "";
+        resultContext.clearRect(0, 0, resultCanvas.width, resultCanvas.height);
+        statusElement.textContent = imageFileInput.files?.[0]
+          ? "画像を更新しました。持ち物欄をリセットしました。"
+          : "画像を選択してください。持ち物欄をリセットしました。";
+      });
 
       runButton.addEventListener("click", detectObjects);
 
       window.addEventListener("pagehide", () => {
         model?.dispose?.();
+        bookOcr?.model?.dispose?.();
       });
     </script>
+    </section>
+    </div>
+
+    <section class="content-block" aria-labelledby="usage-title">
+      <h2 id="usage-title">使い方</h2>
+      <ol>
+        <li>時間割の各時限には教科名を入力し、部活名は一番下の「部活」行に入力します。時間割と共通の持ち物は入力時に自動保存され、時間割の下のボタンからも保存できます。</li>
+        <li>時間割の上にある共通欄には、授業がある日に毎回持っていくものを入力します。</li>
+        <li>教科の持ち物は、時間割と同じ教科名で登録します。持ち物は「、」か改行で区切ります。</li>
+        <li>部活の持ち物は、時間割の「部活」行と同じ名前で登録します。たとえば、月曜の部活が「バスケットボール部」なら、部活名にも同じ名前を入力します。登録した持ち物は、その部活がある曜日の不足確認に加わります。</li>
+        <li>持ち物がない場合は「なし」と入力できます。不足品には含めません。</li>
+        <li>不足確認では、曜日と今持っているものを入力して「不足している持ち物を確認」を押します。</li>
+        <li>画面上部の「次の授業だけ必要なもの」で曜日を選び、時間割にある対象の授業を1つ以上選んで登録します。入力した持ち物は選んだ授業すべてに追加されます。複数の持ち物は「、」か改行で区切れます。同じ授業に続けて登録すると持ち物が追加され、授業後は一覧から削除できます。</li>
+        <li>画像認識は画像を選んで「物体を検出」を押します。画像を選び直すと「今持っているもの」はリセットされます。本を検出すると日本語の題名を読み、題名の語句から教科を推測します。題名を読み取れない場合は「本」として反映します。初回は認識モデルの取得にインターネット接続が必要です。</li>
+      </ol>
     </section>
   </body>
 </html>
